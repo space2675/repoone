@@ -1,0 +1,130 @@
+
+Install:
+===================
+
+Follow the steps
+http://askubuntu.com/questions/566734/how-to-install-oracle-11gr2-on-ubuntu-14-04
+
+with one modification: add following changes before run "sudo /etc/init.d/oracle-xe configure"
+
+sudo rm -rf /dev/shm;
+sudo mkdir /dev/shm;
+sudo mount -t tmpfs shmfs -o size=2048m /dev/shm;
+
+
+Options chosen during "configure":
+=====================================
+
+Specify the HTTP port that will be used for Oracle Application Express [8080]:8089
+
+Specify a port that will be used for the database listener [1521]:1521
+
+Specify a password to be used for database accounts.  Note that the same
+password will be used for SYS and SYSTEM.  Oracle recommends the use of 
+different passwords for each database account.  This can be done after 
+initial configuration: ubuntu
+Confirm the password:
+
+Do you want Oracle Database 11g Express Edition to be started on boot (y/n) [y]:n
+
+After installation:
+==========================
+Stop first, then start
+
+$ sudo service oracle-xe stop;
+$ sudo service oracle-xe start;
+
+Log as DBA to create tablespace first, and then create user:
+
+$ sqlplus sys as sysdba
+
+//http://www.rastertek.com/oratut04.html
+
+SQL> create tablespace os_data
+  2  datafile '/data/oracle/2016/u01/dev_os/os_data_01.dbf' size 100M
+  3  extent management local autoallocate segment space management auto;
+
+Tablespace created.
+
+SQL> create user dev_os identified by "pass" default tablespace os_data;
+SQL> grant connect to dev_os;
+SQL> alter user dev_os quota unlimited on os_data;
+SQL> grant create table to dev_os;
+
+//SQL> grant DBA to dev_os;
+
+//The concept of schema in Oracle
+//With the permissions in place we can now create a basic table which will change this user into a schema since it will now own its own data. First connect as the user, you can use the following syntax (connect username/password): 
+
+SQL> connect dev_os/pass;
+Connected.
+SQL> create table TEST (CITY varchar2(32), POPULATION number);
+SQL> select * from test;
+SQL>  insert into TEST (CITY, POPULATION) values ('edmonton', 10);
+SQL> insert into TEST (CITY, POPULATION) values ('vancouver', 20);
+SQL> commit;
+SQL> select * from test;
+
+CITY				 POPULATION
+-------------------------------- ----------
+edmonton				 10
+vancouver				 20
+
+SQL> 
+
+
+
+$ sqlplus
+user-name: dev_os
+password: 
+
+-- check how many tables under that user?
+SQL> select * from tab;
+
+
+
+Uninstall:
+====================
+If anything goes wrong, better to uninstall all as 
+http://askubuntu.com/questions/740203/how-to-uninstall-oracle-database-from-ubuntu-14-04
+
+$ sudo su
+
+Enter the following:
+
+# /etc/init.d/oracle-xe stop
+# dpkg --purge oracle-xe
+# rm -r /u01/app
+# rm /etc/default/oracle-xe
+
+# update-rc.d -f oracle-xe remove
+# update-rc.d -f oracle-mount remove
+# update-rc.d -f oracle-shm remove
+
+
+
+
+Some table for testing
+=============================
+create table job_status (
+  name varchar2(100) not null,
+  start_date timestamp,
+  end_date timestamp,
+  status varchar2(50),
+  constraint job_status_pk primary key(name)
+);
+
+insert into job_status(name) values ('task1');
+
+properties for jdbc:
+url=jdbc:oracle:thin:@localhost:1521:XE
+user=dev_os
+password=pass
+
+Note that port 1521 may not be accessible.
+//from the same machine, it works
+$ telnet localhost 1521
+//from other machine, timed out, ping 10.0.0.120 works
+$ telnet 10.0.0.120 1521
+
+

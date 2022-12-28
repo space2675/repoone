@@ -2,14 +2,13 @@
 
 sudo /usr/local/mysql/support-files/mysql.server start
 
+- https://www.digitalocean.com/community/tutorials/how-to-create-a-new-user-and-grant-permissions-in-mysql
+
 - How to create a database and user
 
-log in as root
 
-mysql> create database if not exists wordpress character set utf8 collate utf8_general_ci;
-
-mysql> grant all privileges on wordpress.* to wp@localhost identified by 'wp';
-
+    mysql> create database if not exists wordpress character set utf8 collate utf8_general_ci;
+    mysql> grant all privileges on wordpress.* to wp@localhost identified by 'wp';
 
 - How to handle reconnect error?
 

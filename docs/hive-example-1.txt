@@ -1,0 +1,94 @@
+
+create table daily_data (
+userid bigint,
+movieid bigint,
+datestr string )
+partitioned by (datep string)
+row format serde 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
+stored as inputformat 'org.apache.hadoop.mapred.TextInputFormat'
+outputformat 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+location 'hdfs://localhost:9000/user/hive/warehouse/daily_data';
+
+
+
+hive -e "select count(*) from u_data";
+
+
+#!/bin/bash
+
+DAY_OFFSET=1
+
+datestr=$(date +"%Y-%m-%d" -d "-$DAY_OFFSET day")
+yearstr=$(date +"%Y" -d "-$DAY_OFFSET day")
+monthstr=$(date +"%m" -d "-$DAY_OFFSET day")
+daystr=$(date +"%d" -d "-$DAY_OFFSET day")
+
+echo "year/month/date: $datestr, $yearstr, $monthstr, $daystr"
+
+monthstr=`echo $monthstr | sed -e 's/^0//'`
+daystr=`echo $daystr | sed -e 's/^0//'`
+
+echo "year/month/date: $datestr, $yearstr, $monthstr, $daystr"
+
+## drop, if exists
+hive -e "alter table daily_data drop if exists partition (datep='$datestr')"
+if [ $? != 0 ]; then
+    echo "Error: drop table partition $datestr"
+    exit 1
+else 
+    echo "Success: dropped table partition $datestr"
+fi
+
+## populate
+hive -e "insert into table daily_data partition(datep='$datestr') select distinct userid, movieid, '$datestr' from daily_data_raw_1 where year='$yearstr' and month='$monthstr' and day='$daystr'"
+
+hive -e "insert into table daily_data partition(datep='$datestr') select distinct userid, movieid, '$datestr' from daily_data_raw_2 where year='$yearstr' and month='$monthstr' and day='$daystr'"
+
+
+
+## export
+sqoop export --connect jdbc:mysql://localhost/oak --username oak --password oak --table daily_data --columns userid,movieid -m 4 --export-dir /user/hive/warehouse/daily_data/datep=$datestr --input-fields-terminated-by '\001'
+
+if [ $? != 0 ]; then
+    echo "Error: sqoop export failed"
+    exit 9
+else
+    echo "Success: sqooped"
+fi
+
+
+#!/bin/bash
+
+datestr='2015-05-15'
+
+## check if exists
+hdfs dfs -test -d "/user/hive/warehouse/daily_data/datep=$datestr"
+if [ $? -eq 0 ]; then
+    echo "exists"
+    continue
+fi
+
+## join
+hive -e "insert overwrite table daily_data_1 partition (datep='$datestr') select to_utc_timestamp(unix_timestamp(a.date_, 'yyyy-MM-dd')*1000, 'UTC'), ...from table_1 a join table_2 b on (a.date_parition='$datestr' and a.userid = b.userid)"
+
+## clear mysql
+mysql -u -p -hlocalhost oak -e "delete from tableabc where date = '$datestr'";
+
+## export to mysql
+sqoop export --connect 'jdbc:mysql://localhost:3306/oak?useUnicode=true&characterEncoding=utf8' --username oak --password oak --table tableabc --column col1,col2 -m 4 --export-dir /user/hive/warehouse/.../datep=$datestr --input-fields-terminated-by '\001'
+
+
+
+
+hive -e "
+CREATE TABLE u_data ( \
+  userid INT, \
+  movieid INT, \
+  rating INT, \
+  unixtime STRING) \
+ROW FORMAT DELIMITED \
+FIELDS TERMINATED BY '\t' \
+STORED AS TEXTFILE";
+
+hive -e "load data local inpath '/data/movielens/smalldata-from-ml-100k-for-demo/u.data' overwrite into table u_data";
+
