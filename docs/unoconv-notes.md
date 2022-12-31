@@ -1,4 +1,3 @@
-
 # unoconv-notes
 
 convert word documents to pdf or html
@@ -11,8 +10,8 @@ environment:
 
 sudo apt-get install unoconv
 
-unoconv -f pdf 33501-g40.doc
-unoconv -f html 33501-g40.doc
+unoconv -f pdf sample.doc
+unoconv -f html sample.doc
 
 
 word-docs$ for i in `ls *docx`; do echo $i; unoconv -f html $i; done;
